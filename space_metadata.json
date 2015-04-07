@@ -1,0 +1,46 @@
+{
+"groups": [
+  {"name": "allusers", "users": ["schettj@gmail.com", "jam1401@gmail.com", "gbecker8888@gmail.com", "choonmun.hooi@gmail.com", "aprilr.samsung@gmail.com", "michael.o.mccann@gmail.com", "asilver@gmail.com"]}
+  ],
+"spaces": [
+  {"uuid":"8d317958-a6b8-49ae-9a04-51b786195ba3", "macs":["D2:AD:8E:05:00:46"], "exclusions": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2", "3657534d-0387-47ab-bbf7-868835267d73"] },
+  {"uuid":"f06ecb2f-de00-4ea6-a533-c46b217f96a2", "name":"Lab", "groups": ["allusers"], "services":["7d371985-41b9-4208-989c-4855a6cf42ee","6e16ba92-06ba-4379-b813-2e347818cb95", "3f1fde3f-004f-43fe-a96a-3c6d7693646a"]},
+  {"uuid":"3657534d-0387-47ab-bbf7-868835267d73", "name":"Fishbowl",  "macs": ["C8:0D:E4:CC:FB:15"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "users":["schettj@gmail.com", "jam1401@gmail.com", "gbecker8888@gmail.com"],"services":["e49cc815-6580-4a37-88ec-163d6b2fc245"]},
+  {"uuid":"5ae30445-8647-4269-8766-30b7c5e1c5eb", "name":"Collaboration",  "macs": ["DC:13:36:60:FF:54", "EA:1A:06:E2:0A:34"],  "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["0064a4bb-8601-4fde-81bf-978d2af3fdc7"]},
+  {"uuid":"cc6ccbbe-14cc-4ba3-9e39-81ec14710f0a", "name":"NearMengsOffice",  "macs": ["F1:C6:63:2A:B0:92"],  "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"] },
+  {"uuid":"3657534d-0387-47ab-bbf7-868835267d73", "name":"Moss",  "macs": ["EE:1E:C8:57:83:12"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["ed980266-2191-4472-a580-afc17961728d"]},
+  {"uuid":"cfbd5a20-0e4f-4462-8468-cc9bcdce4fc0", "name":"Aspen",  "macs": ["E8:91:7E:1A:35:70", "D2:AD:8E:05:00:46"],  "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["66d964ac-0dfe-4ff1-bdf4-3636ce379f02"]},
+  {"uuid":"92f697df-843b-49de-a1b7-0155493f2c25", "name":"Converge",  "macs": ["D8:91:6E:C6:81:F2"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["66d964ac-0dfe-4ff1-bdf4-3636ce379f02"]},
+  {"uuid":"0bb4e3ca-cdce-11e4-83e2-1681e6b88ec1", "name":"TestLab", "groups": ["allusers"], "services":["7d371985-41b9-4208-989c-4855a6cf42ee","6e16ba92-06ba-4379-b813-2e347818cb95","3f1fde3f-004f-43fe-a96a-3c6d7693646a"]},
+  {"uuid":"70cd32f9-7a7f-4bd6-8566-4111e8f8ad8a", "name":"TestLab2", "groups": ["allusers"], "services":["7d371985-41b9-4208-989c-4855a6cf42ee","6e16ba92-06ba-4379-b813-2e347818cb95"]},
+  {"uuid":"a19f93e0-cdcd-11e4-83e2-1681e6b88ec1", "name":"Light Blue", "macs": ["F8:6D:DB:19:49:36"], "parents": ["0bb4e3ca-cdce-11e4-83e2-1681e6b88ec1","70cd32f9-7a7f-4bd6-8566-4111e8f8ad8a"], "groups": ["allusers"], "services":["66d964ac-0dfe-4ff1-bdf4-3636ce379f02","f06ecb2f-de00-4ea6-a533-c46b217f96a2"]},
+  {"uuid":"4e8a6cc4-cdce-11e4-83e2-1681e6b88ec1", "name":"Dark Blue", "macs": ["F5:A0:1D:D9:E2:FC"], "parents": ["0bb4e3ca-cdce-11e4-83e2-1681e6b88ec1","f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["ed980266-2191-4472-a580-afc17961728d"]},
+  {"uuid":"c941ff67-cecb-463b-b706-ca23b2f9ac1d", "name":"Gene's Car", "macs": ["F7:2F:9F:2E:96:A0"], "users": ["gbecker8888@gmail.com"]},
+  {"uuid":"827c12eb-33d9-4cb6-a05f-53ab9788885b", "name":"Gene's House", "macs": ["ED:E5:02:50:DC:05"], "users": ["gbecker8888@gmail.com"]},
+  {"uuid":"07b33406-ee73-4cf6-a1d0-037401277053", "name":"Gene's Portable Space", "macs": ["E4:9E:66:F2:F0:70"], "users": ["gbecker8888@gmail.com"]},
+  {"uuid":"beb496dc-cdce-11e4-83e2-1681e6b88ec1", "macs": ["C1:0A:85:AB:92:E2"], "exclusions": ["70cd32f9-7a7f-4bd6-8566-4111e8f8ad8a", "a19f93e0-cdcd-11e4-83e2-1681e6b88ec1"]}
+  ],
+
+"services": [
+ {"uuid":"7d371985-41b9-4208-989c-4855a6cf42ee", "name":"HAL", "endpoint": "/hal"},
+ {"uuid":"f47e4f81-4ed5-449c-8bb3-88e5177fac57", "name":"Who Is Here?", "endpoint": "/here", "default": true},
+ {"uuid":"6e16ba92-06ba-4379-b813-2e347818cb95", "name":"Speak", "endpoint": "/speak", "enterhook": "speakenter", "webservice": "927f7e24-4fad-4cea-acf3-4cbf69d85351", "device":"ab9ed458-1516-4f66-9bdc-393fbfe08da1", "method": "PUT", "noui": true},
+ {"uuid":"3f1fde3f-004f-43fe-a96a-3c6d7693646a", "name":"Control Lights", "endpoint": "/stlights", "webservice": "f1aee77f-f747-4cfe-a428-e56fd16af79e" },
+ {"uuid":"e49cc815-6580-4a37-88ec-163d6b2fc245", "name":"Example1", "endpoint": "/e1"},
+ {"uuid":"0064a4bb-8601-4fde-81bf-978d2af3fdc7", "name":"Example2", "endpoint": "/e2"},
+ {"uuid":"ed980266-2191-4472-a580-afc17961728d", "name":"Example3", "endpoint": "/e3"},
+ {"uuid":"66d964ac-0dfe-4ff1-bdf4-3636ce379f02", "name":"Example4", "endpoint": "/e4"}
+],
+
+"webservices" : [
+ {"uuid":"927f7e24-4fad-4cea-acf3-4cbf69d85351", 
+     "request": {"headers": {"Content-Type": "application/json", "Authorization": "Bearer c007484c-45d3-40f6-9ff1-bbf2dd42d48f"}, "uri": "https://graph.api.smartthings.com/api/smartapps/installations/139c6ff8-0372-4c1b-93e3-3e20b6253a46/ab9ed458-1516-4f66-9bdc-393fbfe08da1", "method": "PUT" }},
+                 {"uuid":"f1aee77f-f747-4cfe-a428-e56fd16af79e",
+                 "request": {"headers": {"Content-Type": "application/json", "Authorization": "Bearer c007484c-45d3-40f6-9ff1-bbf2dd42d48f"},
+                 "uri": "https://graph.api.smartthings.com/api/smartapps/installations/139c6ff8-0372-4c1b-93e3-3e20b6253a46"}}
+]
+    
+    
+
+}
+
