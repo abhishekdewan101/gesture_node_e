@@ -1,3 +1,4 @@
+/// <reference path="typings/node/node.d.ts"/>
 module.exports.settings = { 'mongo': 'mongodb://localhost:27017/uno', 'serviceport' : 8181 };
 
 var settings = module.exports.settings;
@@ -30,42 +31,42 @@ module.exports.disconnect = function() { mydb.close(); };
 var metadatapath = "space_metadata.json";
 
 // brains
-var littlebrains = {}
+var littlebrains = {};
 
 // Home Service GUID/User Map
-var homespacemap = {}
+var homespacemap = {};
 
 // user space map - will be in DB
-var spacemap = {}
+var spacemap = {};
 
 // given a webhook (a service) what is the webservice it uses (if any) TBD list of em?
-var servicehookmap = {}
+var servicehookmap = {};
 
 // last seen space map -- again in DB
-var lastspacemap = {}
+var lastspacemap = {};
 
 // space database - will be in DB
-var spacemetadata = {}
+var spacemetadata = {};
 
 // this would be where a service would add "enter/leave" hooks
-var enterhooks = {}
-var leavehooks = {}
+var enterhooks = {};
+var leavehooks = {};
 
 // TBD: need to be able to load modules at runtime?
 
 // this is a SERVICE item
 var hooknames = {
     speakenter: speakenter,
-}
+};
 
 // this is a SERVICE item
-var speakperspacemap = {}
+var speakperspacemap = {};
 
 
 // event logging
 function logEventToDb(evt) {
     dbeventlog.insert(evt);
-}
+};
 
 // pretty time spans.
 function timeSince(date) {
@@ -94,7 +95,7 @@ function timeSince(date) {
         return interval + " minutes";
     }
     return Math.floor(seconds) + " seconds";
-}
+};
 
 // set up webhooks from metadata
 function enableEventHooks() {
@@ -128,7 +129,7 @@ function enableEventHooks() {
                             
                             // TBD: make fast lookup for webhook by service?
                             
-                            console.log("    has a webservice: " + webmeta)
+                            console.log("    has a webservice: " + webmeta);
                             if (servicemeta.hasOwnProperty("enterhook")) {
                                 if (!enterhooks.hasOwnProperty(space.uuid)) {
                                     enterhooks[space.uuid] = new Array();
@@ -136,7 +137,7 @@ function enableEventHooks() {
                                 var spacerec = {method: hooknames[servicemeta.enterhook], request: webmeta.request};
                                 enterhooks[space.uuid].push(spacerec );
                             } else {
-                                servicehookmap[servicemeta.endpoint] = webmeta
+                                servicehookmap[servicemeta.endpoint] = webmeta;
                             }
                         }
                     }
@@ -148,7 +149,7 @@ function enableEventHooks() {
         
     }
     console.log(enterhooks);
-}
+};
 
 // this enter hook is called when anyone enters a space with the speak service
 function speakenter(space, rec, req) {
@@ -195,14 +196,14 @@ function speakenter(space, rec, req) {
     request(sendreq, function (err, res, body) {
         console.log("SUCCESS: ", bodyStr, err);
     });
-}
+};
 
 
 //
 // callback for connect call - finish connecting to mongo, make sure all indexes we need exist
 //
 function connected2(err, db) {
-    if(err) { logger.error("Could not connect to mongod, check config."); throw err;}
+    if(err) { console.log("Could not connect to mongod, check config."); throw err;}
     
     // use db;
     mydb = db;
@@ -231,7 +232,7 @@ module.exports.connect();
 // read in space config file (or get from DB)
 function readspacemetadata() {
     // Read the file and send to the callback
-    fs.readFile(metadatapath, handleFile)
+    fs.readFile(metadatapath, handleFile);
 }
 
 
@@ -273,29 +274,29 @@ function doEnterHooks(space, rec) {
     
     console.log("mongo call");
     // mongo parallel - eventually will be only thing used but then need to defer finishing callback until its done
-    dbspaces.findOne({'uuid': space, 'user': rec.user}, function (err, foundrec) {
-                     if(err) {
+    dbspaces.findOne({ 'uuid': space, 'user': rec.user }, function (err, foundrec) {
+        if (err) {
+
+            console.log(err);
+            console.log("mongo call error");
+        }
+        if (foundrec) {
+            // make "old" record active
+            console.log("Found Old for ", space, rec.user, foundrec);
+            foundrec.time = rec.time;
+            foundrec.present = true;
+            dbspaces.save(foundrec, function (err, rec) { if (err) { console.log(err); } });
+        } else {
+            // add record
+            console.log("Add New for ", space, rec.user, rec);
+            dbspaces.insert({ 'uuid': space, 'user': rec.user, 'time': rec.time, 'present': true });
+        }
+
+        console.log("mongo done");
                      
-                            console.log(err);
-                            console.log("mongo call error");
-                     }
-                     if (foundrec) {
-                            // make "old" record active
-                     console.log("Found Old for ", space, rec.user, foundrec);
-                     foundrec.time = rec.time;
-                     foundrec.present = true;
-                     dbspaces.save(foundrec, function(err, rec) {if(err) { console.log(err)}});
-                     } else {
-                            // add record
-                     console.log("Add New for ", space, rec.user, rec);
-                     dbspaces.insert({'uuid': space, 'user': rec.user, 'time': rec.time, 'present': true});
-                     }
-                     
-                     console.log("mongo done")
-                     
-                     // enter hook processing here
-                     // web request callback finishes here
-                     });
+        // enter hook processing here
+        // web request callback finishes here
+    });
     
     if (!spacemap.hasOwnProperty(space)) spacemap[space] = new Array();
     
@@ -328,30 +329,30 @@ function doEnterHooks(space, rec) {
 // along with global exit hook
 function doExitHooks(space, rec) {
     // mongo parallel - eventually will be only thing used but then need to defer finishing callback until its done
-    dbspaces.findOne({'uuid': space, 'user': rec.user}, function (err, foundrec) {
-                     if(err) console.log(err);
-                     if (foundrec) {
-                     console.log("Found Old for ", space, rec.user, foundrec);
-                     // make "old" record inactive
-                     foundrec.time = new Date();
-                     foundrec.present = false;
-                     dbspaces.save(foundrec, function(err, rec) {if(err) { console.log(err)}});
-                     } else {
-                     // THIS IS NOT SUPPOSED TO HAPPEN
-                     console.log("THIS IS NOT SUPPOSED TO HAPPEN - LEAVE WITHOUT ENTER. MIND BLOWN");
-                     // add record
-                     dbspaces.insert({'uuid': space, 'user': rec.user, 'time': rec.time, 'present': false});
-                     }
-                     // exit hook processing here
-                     // web request callback finishes here
-                     });
+    dbspaces.findOne({ 'uuid': space, 'user': rec.user }, function (err, foundrec) {
+        if (err) console.log(err);
+        if (foundrec) {
+            console.log("Found Old for ", space, rec.user, foundrec);
+            // make "old" record inactive
+            foundrec.time = new Date();
+            foundrec.present = false;
+            dbspaces.save(foundrec, function (err, rec) { if (err) { console.log(err); } });
+        } else {
+            // THIS IS NOT SUPPOSED TO HAPPEN
+            console.log("THIS IS NOT SUPPOSED TO HAPPEN - LEAVE WITHOUT ENTER. MIND BLOWN");
+            // add record
+            dbspaces.insert({ 'uuid': space, 'user': rec.user, 'time': rec.time, 'present': false });
+        }
+        // exit hook processing here
+        // web request callback finishes here
+    });
 
     
     if (!spacemap.hasOwnProperty(space)) spacemap[space] = new Array();
     var existing = objectFindByKey(spacemap[space], 'user', rec.user);
     // sanity check - kinda hard to leave if you can't find the door!
     if (existing != -1) {
-        oldrec = spacemap[space][existing];
+        var oldrec = spacemap[space][existing];
         oldrec["time"] = new Date();
         
         // update last seen in this space
@@ -421,8 +422,8 @@ function postState(req, deviceid, staterec) {
 
     sendreq.headers = req.headers;
     sendreq.headers['Content-Length'] = bodyStr.length;
-    sendreq.uri = req.uri + "/" + deviceid
-    sendreq.method = "PUT"
+    sendreq.uri = req.uri + "/" + deviceid;
+    sendreq.method = "PUT";
     console.log(req);
     console.log(sendreq);
     request(sendreq, function (err, res, body) {
@@ -443,7 +444,7 @@ function getSmartThingsDeviceList(capabiltiy) {
         var sendreq = {};
         sendreq.headers = req.headers;
         sendreq.uri = req.uri + "/details/"+capabiltiy;
-        sendreq.method = "GET"
+        sendreq.method = "GET";
         sendreq.followRedirect = true;
         console.log(req);
         console.log(sendreq);
@@ -516,33 +517,33 @@ function setHueBulbs(bulbs, color) {
     }
     if (sendreq != null) {
         request(sendreq, function (err, res, body) {
-                console.log("SUCCESS: ", err);
-                try {
+            console.log("SUCCESS: ", err);
+            try {
                 var lights = JSON.parse(body);
                 if (lights.hasOwnProperty("devices")) {
-                
-                for(var sidx = 0; sidx < lights.devices.length; sidx++) {
-                if (bulbarray.indexOf(lights.devices[sidx].label.toLowerCase()) > -1) {
-                console.log("set light color " + lights.devices[sidx].label + " to " + color);
 
-                // lights.devices[sidx].state = { 'hue': hue }; // use hue
-                // delete lights.devices[sidx].state.color; // ignore color
-                // POST STATE TO DEVICE
-                postState(req, lights.devices[sidx].id, { 'hue': hue } );
+                    for (var sidx = 0; sidx < lights.devices.length; sidx++) {
+                        if (bulbarray.indexOf(lights.devices[sidx].label.toLowerCase()) > -1) {
+                            console.log("set light color " + lights.devices[sidx].label + " to " + color);
+
+                            // lights.devices[sidx].state = { 'hue': hue }; // use hue
+                            // delete lights.devices[sidx].state.color; // ignore color
+                            // POST STATE TO DEVICE
+                            postState(req, lights.devices[sidx].id, { 'hue': hue });
+                        }
+                    }
                 }
-                }
-                }
-                } catch (e) {
+            } catch (e) {
                 console.log(e);
                 console.log(body);
-                }
-                });
+            }
+        });
 
     }
 }
 
-var lastbulbs = ""
-var lastcolor = ""
+var lastbulbs = "";
+var lastcolor = "";
 // demo service "at home"
 function atHomeService(space, inboundrequest, response) {
     var myresponse = response;
@@ -574,25 +575,25 @@ function atHomeService(space, inboundrequest, response) {
         // get settings for space itself
         var sceneuser = parsedreq.query.user;
         var scenename = parsedreq.query.scene;
-        query = {'space':space};
+        var query = {'space':space};
         if ((sceneuser != null) && (sceneuser != "")) query['user'] = sceneuser;
         if ((scenename != null) && (scenename != "")) query['scene'] = scenename;
         else query['scene'] = "";
-        var stream = dbathomepref.findOne(query, {_id:0}, function (err, foundrec) {
-                                          if (err) {
-                                            console.log(err);
-                                            console.log("mongo call error");
-                                            response.write("{}");
+        var stream = dbathomepref.findOne(query, { _id: 0 }, function (err, foundrec) {
+            if (err) {
+                console.log(err);
+                console.log("mongo call error");
+                response.write("{}");
 
-                                          } else
-                                          if (foundrec) {
-                                            response.write(JSON.stringify(foundrec, undefined, 1));
-                                          }
-                                          else
-                                            response.write("{}");
+            } else
+                if (foundrec) {
+                    response.write(JSON.stringify(foundrec, undefined, 1));
+                }
+                else
+                    response.write("{}");
 
-                                        response.end("");
-                                          });
+            response.end("");
+        });
         
        
         
@@ -603,7 +604,7 @@ function atHomeService(space, inboundrequest, response) {
         var littlebrain = parsedreq.query.name;
         var localuri = parsedreq.query.uri;
         var count = 0;
-        littlebrains[space] = {'name':littlebrain, 'uri': localuri}
+        littlebrains[space] = {'name':littlebrain, 'uri': localuri};
         response.write("{\"settings\":[");
         // TBD read settings, return them here
         //db.athomeprefs.find({'space':"92f697df-843b-49de-a1b7-0155493f2c25", 'mode':{$exists:true}}).sort({'mode.hour':1})
@@ -662,53 +663,60 @@ function atHomeService(space, inboundrequest, response) {
             
             // look up user preferences
             
-            dbathomepref.findOne({'user': homespacemap[space].userrec.user, 'space':space}, function (err, foundrec) {
-                                 var station = null;
-                                 var color = null;
-                                 var greeting = "Hi! You need to set your preferences for the At Home Service";
-                                 var bulbs = null;
-                                 var showurl = null;
+            dbathomepref.findOne({ 'user': homespacemap[space].userrec.user, 'space': space }, function (err, foundrec) {
+                var station = null;
+                var color = null;
+                var greeting = "Hi! You need to set your preferences for the At Home Service";
+                var bulbs = null;
+                var showurl = null;
 
-                                 
-                                 if(err) {
-                                 console.log(err);
-                                 console.log("mongo call error");
-                                 }
-                                 if (foundrec) {
-                                 color = foundrec.color == "undefined" ? null : foundrec.color ;
-                                 bulbs = foundrec.bulbs == "undefined" ? null : foundrec.bulbs ;
-                                 greeting = foundrec.greeting ;
-                                 station = foundrec.station;
-                                 showurl = foundrec.url;
-                                 } else {
-                                    showurl = "http://m.memegen.com/ytpj63.jpg";
-                                 }
-                                 resptxt += '{"speak":"' + greeting + '","guid":' + homespacemap[space].guid ;
-                                 
-                                 if (station != null ) {
-                                    resptxt += ', "station":"' + station + '"';
-                                 }
-                                 
-                                 if (showurl != null ) {
-                                    resptxt += ', "image":"' + showurl + '"';
-                                 }
-                                 
-                                 // TBD don't do the bulbs here?
 
-                                 /*if ((bulbs != null ) && (color != null)) {
-                                    if ((bulbs != lastbulbs) || (color != lastcolor)) {
-                                        setHueBulbs(bulbs, color);
+                if (err) {
+                    console.log(err);
+                    console.log("mongo call error");
+                }
+                if (foundrec) {
+                    color = foundrec.color == "undefined" ? null : foundrec.color;
+                    bulbs = foundrec.bulbs == "undefined" ? null : foundrec.bulbs;
+                    greeting = foundrec.greeting;
+                    station = foundrec.station;
+                    showurl = foundrec.url;
+                } else {
+                    showurl = "http://m.memegen.com/ytpj63.jpg";
+                }
+                resptxt += '{"speak":"' + greeting + '","guid":' + homespacemap[space].guid;
+
+                if (station != null) {
+                    resptxt += ', "station":"' + station + '"';
+                }
+
+                if (showurl != null) {
+                    resptxt += ', "image":"' + showurl + '"';
+                }
                                  
-                                 lastcolor = color;
-                                 lastbulbs = bulbs;
-                                 */
-                                 //}
-                                 //}
+                if (bulbs != null) {
+                    resptxt += ', "bulbs":"' + bulbs + '"';
+                }
+                if (color != null) {
+                    resptxt += ', "color":"' + color + '"';
+                }
+                                 
+                // TBD don't do the bulbs here? 
 
-                                 resptxt += ',"message":"","pubDate":"' + homespacemap[space].userrec.time + '"}';
-                                 response.end(resptxt);
+                /*if ((bulbs != null ) && (color != null)) {
+                   if ((bulbs != lastbulbs) || (color != lastcolor)) {
+                       setHueBulbs(bulbs, color);
+                
+                lastcolor = color;
+                lastbulbs = bulbs;
+                */
+                //}
+                //}
 
-                                 });
+                resptxt += ',"message":"","pubDate":"' + homespacemap[space].userrec.time + '"}';
+                response.end(resptxt);
+
+            });
         }
 
     }
@@ -725,42 +733,42 @@ function atHomeService(space, inboundrequest, response) {
         
         if (save == "1") {
             console.log("Save Settings");
-            dbathomepref.findOne({'user': useremail, 'space':space}, function (err, foundrec) {
-                                 if(err) {
-                                 console.log(err);
-                                 console.log("mongo call error");
-                                 }
-                                 if (foundrec) {
-                                    foundrec.color = color;
-                                    foundrec.greeting = greeting;
-                                    foundrec.station = station;
-                                    foundrec.bulbs = bulbs;
-                                    foundrec.url = showurl;
-                                 
-                                    dbathomepref.update({'user': useremail},foundrec);
-                                 } else {
-                                 dbathomepref.insert({user: useremail, space: space, station: station, bulbs:bulbs, color: color, url: showurl, greeting: greeting });
-                                 }
-                                 sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
-                                 });
-        } else {
-            console.log("Lookup Settings " + useremail);
-            dbathomepref.findOne({'user': useremail, 'space':space}, function (err, foundrec) {
-                if(err) {
+            dbathomepref.findOne({ 'user': useremail, 'space': space }, function (err, foundrec) {
+                if (err) {
                     console.log(err);
                     console.log("mongo call error");
                 }
                 if (foundrec) {
-                                 console.log(foundrec);
-                                 color = foundrec.color;
-                                 bulbs = foundrec.bulbs;
-                                 greeting = foundrec.greeting ;
-                                 station = foundrec.station;
-                                 showurl = foundrec.url;
-                                 } else {
-                                 console.log("{'user': " + useremail + "} not found" )
-                                 }
-                                 sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
+                    foundrec.color = color;
+                    foundrec.greeting = greeting;
+                    foundrec.station = station;
+                    foundrec.bulbs = bulbs;
+                    foundrec.url = showurl;
+
+                    dbathomepref.update({ 'user': useremail }, foundrec);
+                } else {
+                    dbathomepref.insert({ user: useremail, space: space, station: station, bulbs: bulbs, color: color, url: showurl, greeting: greeting });
+                }
+                sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
+            });
+        } else {
+            console.log("Lookup Settings " + useremail);
+            dbathomepref.findOne({ 'user': useremail, 'space': space }, function (err, foundrec) {
+                if (err) {
+                    console.log(err);
+                    console.log("mongo call error");
+                }
+                if (foundrec) {
+                    console.log(foundrec);
+                    color = foundrec.color;
+                    bulbs = foundrec.bulbs;
+                    greeting = foundrec.greeting;
+                    station = foundrec.station;
+                    showurl = foundrec.url;
+                } else {
+                    console.log("{'user': " + useremail + "} not found");
+                }
+                sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
             });
         }
                     
@@ -785,35 +793,35 @@ function stLightsService(space, inboundrequest, response) {
         req = servicehookmap["/stlights"].request;
 
         request(sendreq, function (err, res, body) {
-                console.log("SUCCESS: ", err);
-                try {
+            console.log("SUCCESS: ", err);
+            try {
                 var lights = JSON.parse(body);
                 if (lights.hasOwnProperty("devices")) {
-                var ret = "<h2>Lights - click to toggle on/off</h2><ul>";
-                for(var sidx = 0; sidx < lights.devices.length; sidx++) {
-                if (lights.devices[sidx].id == lightid ) {
-                console.log("TOGGLE LIGHT " + lights.devices[sidx].label);
-                // for display
-                lights.devices[sidx].state.switch =  (lights.devices[sidx].state.switch == "on") ? "off" : "on"
-                // POST STATE TO DEVICE
-                postState(req, lightid, lights.devices[sidx].state );
-                }
-                
-                
-                ret += "<li><a href=\"/" + space + "/service/stlights/"+lights.devices[sidx].id+"\">"+lights.devices[sidx].label+"</a> is currently "+lights.devices[sidx].state.switch + "</li>";
-                
-                }
-                myresponse.end (ret + "</ul>")
-                
+                    var ret = "<h2>Lights - click to toggle on/off</h2><ul>";
+                    for (var sidx = 0; sidx < lights.devices.length; sidx++) {
+                        if (lights.devices[sidx].id == lightid) {
+                            console.log("TOGGLE LIGHT " + lights.devices[sidx].label);
+                            // for display
+                            lights.devices[sidx].state.switch = (lights.devices[sidx].state.switch == "on") ? "off" : "on";
+                            // POST STATE TO DEVICE
+                            postState(req, lightid, lights.devices[sidx].state);
+                        }
+
+
+                        ret += "<li><a href=\"/" + space + "/service/stlights/" + lights.devices[sidx].id + "\">" + lights.devices[sidx].label + "</a> is currently " + lights.devices[sidx].state.switch + "</li>";
+
+                    }
+                    myresponse.end(ret + "</ul>");
+
                 } else
-                myresponse.end("<h2>You didn't see anything (TBD)</h2>");
-                } catch (e) {
+                    myresponse.end("<h2>You didn't see anything (TBD)</h2>");
+            } catch (e) {
                 console.log(e);
                 console.log(body);
                 myresponse.end("<h2>Something Unexpected Happened. Try again later.</h2>");
-                }
-                
-                });
+            }
+
+        });
         
         
     }
@@ -911,13 +919,13 @@ function makeserver() {
                     response.writeHead(400, "No Space Supplied", {'Content-Type': 'text/html'});
                     response.end('<html><head><title>400</title></head><body>400: URI should end in /Channel</body></html>');
                 } else {
-                    request.on('data', function(data) {
-                               requestBody += data;
-                               if(requestBody.length > 1e7) {
-                               response.writeHead(413, "Request Entity Too Large", {'Content-Type': 'text/html'});
-                               response.end('<html><head><title>413</title></head><body>413: Request Entity Too Large</body></html>');
-                               }
-                               });
+                    request.on('data', function (data) {
+                        requestBody += data;
+                        if (requestBody.length > 1e7) {
+                            response.writeHead(413, "Request Entity Too Large", { 'Content-Type': 'text/html' });
+                            response.end('<html><head><title>413</title></head><body>413: Request Entity Too Large</body></html>');
+                        }
+                    });
                     request.on('end', processPut);
                     
                     function processPut() {
@@ -930,10 +938,10 @@ function makeserver() {
                         
                         if (action.length > 0) {
                             if (action == "leave") {
-                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " left " + spaceName(space) + " space"})
+                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " left " + spaceName(space) + " space"});
                                 doExitHooks(space, rec);
                             } else if (action == "enter") {
-                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " entered " + spaceName(space) + " space"})
+                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " entered " + spaceName(space) + " space"});
                                 doEnterHooks(space, rec);
                             } else if (action == "signoff") {
                                 // space is ignored it should be "all"
