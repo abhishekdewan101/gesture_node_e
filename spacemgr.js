@@ -1,4 +1,4 @@
-module.exports.settings = { 'staging': 'mongodb://bigmongo-staging.uxcas.com:27017/uno', 'serviceport' : 8181 };
+module.exports.settings = { 'mongo': 'mongodb://localhost:27017/uno', 'serviceport' : 8181 };
 
 var settings = module.exports.settings;
 
@@ -9,8 +9,31 @@ var http = require('http');
 var qs = require('querystring');
 var urlparser = require('url');
 var request = require('request');
+var uuid = require('node-uuid');
+
+var MongoClient = require('mongodb').MongoClient;
+var ObjectID = require('mongodb').ObjectID;
+var mydb;
+var feedcnt = 1;
+
+var dbspaces;
+var dbeventlog;
+var dbathomepref;
+
+// open mongo
+module.exports.connect = function () { MongoClient.connect(settings.mongo, connected2);};
+
+// close mongo
+module.exports.disconnect = function() { mydb.close(); };
+
 
 var metadatapath = "space_metadata.json";
+
+// brains
+var littlebrains = {}
+
+// Home Service GUID/User Map
+var homespacemap = {}
 
 // user space map - will be in DB
 var spacemap = {}
@@ -37,6 +60,12 @@ var hooknames = {
 
 // this is a SERVICE item
 var speakperspacemap = {}
+
+
+// event logging
+function logEventToDb(evt) {
+    dbeventlog.insert(evt);
+}
 
 // pretty time spans.
 function timeSince(date) {
@@ -169,10 +198,35 @@ function speakenter(space, rec, req) {
 }
 
 
+//
+// callback for connect call - finish connecting to mongo, make sure all indexes we need exist
+//
+function connected2(err, db) {
+    if(err) { logger.error("Could not connect to mongod, check config."); throw err;}
+    
+    // use db;
+    mydb = db;
+    dbspaces = db.collection('spacemap');
+    dbeventlog = db.collection('eventlog');
+    dbathomepref = db.collection('athomeprefs');
+    console.log("db up", dbspaces);
+    
+    // make sure we have indexes
+//    mydb.collection('schedule-events').ensureIndex({prgSvcId:1, startTime:1}, function (err, val) {});
+//    mydb.collection('programs').ensureIndex({TMSid : 1 }, function (err, val) {});
+//    mydb.collection('lineups').ensureIndex({headendId:1}, function (err, val) {});
+//    mydb.collection('sources').ensureIndex({prgSvcId : 1}, function (err, val) {});
+    
+    
+    // load space metadata (until in DB)
+    // should also set up hooks if any
+    readspacemetadata();
+}
 
-// load space metadata (until in DB)
-// should also set up hooks if any
-readspacemetadata();
+//readspacemetadata();
+
+// THIS IS MAIN
+module.exports.connect();
 
 // read in space config file (or get from DB)
 function readspacemetadata() {
@@ -211,10 +265,38 @@ function spaceName(space) {
     } else return "unknown space";
 }
 
+
 // do all enter hooks for this service
 // along with global enter hook
 function doEnterHooks(space, rec) {
     rec["time"] = new Date();
+    
+    console.log("mongo call");
+    // mongo parallel - eventually will be only thing used but then need to defer finishing callback until its done
+    dbspaces.findOne({'uuid': space, 'user': rec.user}, function (err, foundrec) {
+                     if(err) {
+                     
+                            console.log(err);
+                            console.log("mongo call error");
+                     }
+                     if (foundrec) {
+                            // make "old" record active
+                     console.log("Found Old for ", space, rec.user, foundrec);
+                     foundrec.time = rec.time;
+                     foundrec.present = true;
+                     dbspaces.save(foundrec, function(err, rec) {if(err) { console.log(err)}});
+                     } else {
+                            // add record
+                     console.log("Add New for ", space, rec.user, rec);
+                     dbspaces.insert({'uuid': space, 'user': rec.user, 'time': rec.time, 'present': true});
+                     }
+                     
+                     console.log("mongo done")
+                     
+                     // enter hook processing here
+                     // web request callback finishes here
+                     });
+    
     if (!spacemap.hasOwnProperty(space)) spacemap[space] = new Array();
     
     var existing = objectFindByKey(spacemap[space], 'user', rec.user);
@@ -245,6 +327,26 @@ function doEnterHooks(space, rec) {
 // do all exit hooks for this service
 // along with global exit hook
 function doExitHooks(space, rec) {
+    // mongo parallel - eventually will be only thing used but then need to defer finishing callback until its done
+    dbspaces.findOne({'uuid': space, 'user': rec.user}, function (err, foundrec) {
+                     if(err) console.log(err);
+                     if (foundrec) {
+                     console.log("Found Old for ", space, rec.user, foundrec);
+                     // make "old" record inactive
+                     foundrec.time = new Date();
+                     foundrec.present = false;
+                     dbspaces.save(foundrec, function(err, rec) {if(err) { console.log(err)}});
+                     } else {
+                     // THIS IS NOT SUPPOSED TO HAPPEN
+                     console.log("THIS IS NOT SUPPOSED TO HAPPEN - LEAVE WITHOUT ENTER. MIND BLOWN");
+                     // add record
+                     dbspaces.insert({'uuid': space, 'user': rec.user, 'time': rec.time, 'present': false});
+                     }
+                     // exit hook processing here
+                     // web request callback finishes here
+                     });
+
+    
     if (!spacemap.hasOwnProperty(space)) spacemap[space] = new Array();
     var existing = objectFindByKey(spacemap[space], 'user', rec.user);
     // sanity check - kinda hard to leave if you can't find the door!
@@ -329,56 +431,390 @@ function postState(req, deviceid, staterec) {
     
 }
 
+// return a smart things light list request object
+function getSmartThingsDeviceList(capabiltiy) {
+    var req = null;
+    
+    if (servicehookmap.hasOwnProperty("/stlights")) {
+        req = servicehookmap["/stlights"].request;
+        
+        delete req.headers['Content-Length']; // if it happens to be there
+        
+        var sendreq = {};
+        sendreq.headers = req.headers;
+        sendreq.uri = req.uri + "/details/"+capabiltiy;
+        sendreq.method = "GET"
+        sendreq.followRedirect = true;
+        console.log(req);
+        console.log(sendreq);
+    }
+    return sendreq;
+
+    
+}
+
+// send a form out
+
+function sendform(response, username, useremail, station, bulbs, color, showurl, greeting) {
+    // get user prefs for this service/space
+    response.writeHead(200, {'Content-Type': 'text/html'});
+    
+    response.write("<h2>Your At Home Preference Page</h2>");
+    response.write("<p>" + username + ", select your home preferences:<p>");
+    
+    response.write('<form name="feedback" method="get"  action="athome">');
+    response.write('Radio Station: <input type="text" name="station" size="25" value="' + station + '"><p>');
+    response.write('Lighbulb Names: <input type="text" name="bulbs" size="25" value="' + bulbs + '"><p>');
+    response.write('Light Color (0-99): <input type="text" name="color" size="25" value="' + color + '"><p>');
+    response.write('Personal Greeting: <input type="text" name="greeting" size="25" value="' + greeting + '"><p>');
+    response.write('Web Site: <input type="text" name="url" size="25" value="' + showurl + '"><p>');
+    response.write('<input type="hidden" name="user" value="' + useremail + '">');
+    response.write('<input type="hidden" name="name" value="' + username + '">');
+    response.write('<input type="hidden" name="save" value="1">');
+    response.end('<input type="submit" value="Save"></form>');
+}
+
+function setHueBulbs(bulbs, color) {
+    var sendreq = getSmartThingsDeviceList("color%20control");
+    var req = servicehookmap["/stlights"].request;
+    var bulbarray = bulbs.split(",");
+    for  (var i = 0; i< bulbarray.length; i++) {
+        bulbarray[i] = bulbarray[i].trim().toLowerCase();
+    }
+    
+    // color name to hue?
+    /* orange = 9
+     green = 35
+     blue = 71
+     purple = 90
+     red = 102
+     */
+    var hue;
+    if (parseInt(color) >= 0) {
+        hue = parseInt(color);
+    } else {
+        switch (color.toLowerCase()) {
+            case 'red':
+                hue = 102;
+                break;
+            case 'green':
+                hue = 35;
+                break;
+            case 'blue':
+                hue = 71;
+                break;
+            case 'purple':
+                hue = 90;
+                break;
+            case 'orange':
+                hue = 9;
+                break;
+            default:
+                hue = 15;
+                break;
+        }
+    }
+    if (sendreq != null) {
+        request(sendreq, function (err, res, body) {
+                console.log("SUCCESS: ", err);
+                try {
+                var lights = JSON.parse(body);
+                if (lights.hasOwnProperty("devices")) {
+                
+                for(var sidx = 0; sidx < lights.devices.length; sidx++) {
+                if (bulbarray.indexOf(lights.devices[sidx].label.toLowerCase()) > -1) {
+                console.log("set light color " + lights.devices[sidx].label + " to " + color);
+
+                // lights.devices[sidx].state = { 'hue': hue }; // use hue
+                // delete lights.devices[sidx].state.color; // ignore color
+                // POST STATE TO DEVICE
+                postState(req, lights.devices[sidx].id, { 'hue': hue } );
+                }
+                }
+                }
+                } catch (e) {
+                console.log(e);
+                console.log(body);
+                }
+                });
+
+    }
+}
+
+var lastbulbs = ""
+var lastcolor = ""
+// demo service "at home"
+function atHomeService(space, inboundrequest, response) {
+    var myresponse = response;
+    console.log("athome - " + space);
+    
+    // This is either the settings page for the user, or the RSS feed. The RSS feed should serve out content for the current user including
+    // media to play, greeting, info page URL
+    // {image, speak, music...
+    
+    // header is 108 chars
+    // {"title":"messages feed","description":"latest messages","pubDate":"2014-10-08T11:06:29.858-07:00","items":[
+    // read 108 chars until we get past
+    // "items":[
+    // then we expect this {"message":"this is the message","image":"this is the url","r":"0","g":"1","b":"2","guid":58628,"pubDate":"Wed, 08 Oct 2014 10:52:14 -0700"},
+    
+    // check for feed request
+    var parsedreq = urlparser.parse(inboundrequest.url, true);
+    //console.log(parsedreq.query);
+    var req = parsedreq.pathname.split("/");
+    var resptxt;
+    var feed = req[4];
+    console.log(req.length);
+    console.log("feed: " + feed);
+    
+    // settings?name=brain&uri=
+    if (feed == "scene") {
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        // read user and scene from request
+        // get settings for space itself
+        var sceneuser = parsedreq.query.user;
+        var scenename = parsedreq.query.scene;
+        query = {'space':space};
+        if ((sceneuser != null) && (sceneuser != "")) query['user'] = sceneuser;
+        if ((scenename != null) && (scenename != "")) query['scene'] = scenename;
+        else query['scene'] = "";
+        var stream = dbathomepref.findOne(query, {_id:0}, function (err, foundrec) {
+                                          if (err) {
+                                            console.log(err);
+                                            console.log("mongo call error");
+                                            response.write("{}");
+
+                                          } else
+                                          if (foundrec) {
+                                            response.write(JSON.stringify(foundrec, undefined, 1));
+                                          }
+                                          else
+                                            response.write("{}");
+
+                                        response.end("");
+                                          });
+        
+       
+        
+    } else if (feed == "settings") {
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        // read URI from request
+        // get settings for space itself
+        var littlebrain = parsedreq.query.name;
+        var localuri = parsedreq.query.uri;
+        var count = 0;
+        littlebrains[space] = {'name':littlebrain, 'uri': localuri}
+        response.write("{\"settings\":[");
+        // TBD read settings, return them here
+        //db.athomeprefs.find({'space':"92f697df-843b-49de-a1b7-0155493f2c25", 'mode':{$exists:true}}).sort({'mode.hour':1})
+        var stream = dbathomepref.find({'space':space, 'mode':{$exists:true}}, {_id:0}).sort({'mode.hour':1}).stream();
+
+        // handle the stream events
+        stream.on("data", processsetting);
+        stream.on("end", processend);
+
+        function processsetting(item) {
+            if (count++ > 0) response.write(",");
+            response.write(JSON.stringify(item, undefined, 1));
+        }
+        
+        function processend() {
+            response.end("]}");
+        }
+        //
+        //response.end(JSON.stringify(littlebrains[space], undefined, 1));
+    } else if (feed == "brains") {
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        response.end(littlebrains.hasOwnProperty(space)? JSON.stringify(littlebrains[space], undefined, 1) : "{}");
+    } else if (feed == "feed") {
+        response.writeHead(200, {'Content-Type': 'application/json'});
+
+        resptxt = '{"title":"messages feed","description":"latest messages","pubDate":"2014-10-08T11:06:29.858-07:00","items":[';
+        
+        // find who is most recently here, return their data. Regen GUID if datestamp changed
+        var roster = spacemap.hasOwnProperty(space) ? spacemap[space] : new Array();
+        if (roster.length == 0) {
+            resptxt += "]";
+            homespacemap[space] = null; // there is no spoon
+            response.end(resptxt);
+        } else {
+            // pull last user from homespacemap[space]
+            var lastuser = (homespacemap.hasOwnProperty(space) &&  (homespacemap[space] != null)) ? homespacemap[space].userrec : null;
+            
+            // find most recent user
+            var someolddate = new Date(0);
+            var newestuser = {name:"", time: someolddate};
+            for (var i = 0; i < roster.length; i++) {
+                //result +=  "<li>"+spacemap[space][i].name + " entered " + timeSince(spacemap[space][i].time) + " ago</li>";
+                if (spacemap[space][i].time > newestuser.time )
+                    newestuser = spacemap[space][i];
+            }
+            var change = false;
+            if ((lastuser == null) || (newestuser.name != lastuser.name )) {
+                // NEW USER CHANGE FEED
+                console.log("user change");
+                change = true;
+                homespacemap[space] = {userrec: newestuser, guid: feedcnt++}; // uuid.v1()}
+                console.log(homespacemap[space]);
+            }
+            
+            // // then we expect this {"message":"this is the message","image":"this is the url","r":"0","g":"1","b":"2","guid":58628,"pubDate":"Wed, 08 Oct 2014 10:52:14 -0700"},
+            
+            // look up user preferences
+            
+            dbathomepref.findOne({'user': homespacemap[space].userrec.user, 'space':space}, function (err, foundrec) {
+                                 var station = null;
+                                 var color = null;
+                                 var greeting = "Hi! You need to set your preferences for the At Home Service";
+                                 var bulbs = null;
+                                 var showurl = null;
+
+                                 
+                                 if(err) {
+                                 console.log(err);
+                                 console.log("mongo call error");
+                                 }
+                                 if (foundrec) {
+                                 color = foundrec.color == "undefined" ? null : foundrec.color ;
+                                 bulbs = foundrec.bulbs == "undefined" ? null : foundrec.bulbs ;
+                                 greeting = foundrec.greeting ;
+                                 station = foundrec.station;
+                                 showurl = foundrec.url;
+                                 } else {
+                                    showurl = "http://m.memegen.com/ytpj63.jpg";
+                                 }
+                                 resptxt += '{"speak":"' + greeting + '","guid":' + homespacemap[space].guid ;
+                                 
+                                 if (station != null ) {
+                                    resptxt += ', "station":"' + station + '"';
+                                 }
+                                 
+                                 if (showurl != null ) {
+                                    resptxt += ', "image":"' + showurl + '"';
+                                 }
+                                 
+                                 // TBD don't do the bulbs here?
+
+                                 /*if ((bulbs != null ) && (color != null)) {
+                                    if ((bulbs != lastbulbs) || (color != lastcolor)) {
+                                        setHueBulbs(bulbs, color);
+                                 
+                                 lastcolor = color;
+                                 lastbulbs = bulbs;
+                                 */
+                                 //}
+                                 //}
+
+                                 resptxt += ',"message":"","pubDate":"' + homespacemap[space].userrec.time + '"}';
+                                 response.end(resptxt);
+
+                                 });
+        }
+
+    }
+    else {
+        var username = parsedreq.query.name;
+        var useremail = parsedreq.query.user;
+        var save = parsedreq.query.save;
+        
+        var station = parsedreq.query.station;
+        var color = parsedreq.query.color;
+        var greeting = parsedreq.query.greeting;
+        var bulbs = parsedreq.query.bulbs;
+        var showurl = parsedreq.query.url;
+        
+        if (save == "1") {
+            console.log("Save Settings");
+            dbathomepref.findOne({'user': useremail, 'space':space}, function (err, foundrec) {
+                                 if(err) {
+                                 console.log(err);
+                                 console.log("mongo call error");
+                                 }
+                                 if (foundrec) {
+                                    foundrec.color = color;
+                                    foundrec.greeting = greeting;
+                                    foundrec.station = station;
+                                    foundrec.bulbs = bulbs;
+                                    foundrec.url = showurl;
+                                 
+                                    dbathomepref.update({'user': useremail},foundrec);
+                                 } else {
+                                 dbathomepref.insert({user: useremail, space: space, station: station, bulbs:bulbs, color: color, url: showurl, greeting: greeting });
+                                 }
+                                 sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
+                                 });
+        } else {
+            console.log("Lookup Settings " + useremail);
+            dbathomepref.findOne({'user': useremail, 'space':space}, function (err, foundrec) {
+                if(err) {
+                    console.log(err);
+                    console.log("mongo call error");
+                }
+                if (foundrec) {
+                                 console.log(foundrec);
+                                 color = foundrec.color;
+                                 bulbs = foundrec.bulbs;
+                                 greeting = foundrec.greeting ;
+                                 station = foundrec.station;
+                                 showurl = foundrec.url;
+                                 } else {
+                                 console.log("{'user': " + useremail + "} not found" )
+                                 }
+                                 sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
+            });
+        }
+                    
+    }
+
+   
+}
+
+
 // smartthingsLights
 function stLightsService(space, inboundrequest, response) {
     var myresponse = response;
     // given space, find webservice
     console.log("lights - " + space);
-    if (servicehookmap.hasOwnProperty("/stlights")) {
-        
-
+    var sendreq = getSmartThingsDeviceList("switch%20level");
+    
+    if (sendreq != null) {
         var req = urlparser.parse(inboundrequest.url).pathname.split("/");
         var lightid = req[4];
-        console.log(req.length);
-        console.log("light id: " + lightid);
-
-        
+//        console.log(req.length);
+//        console.log("light id: " + lightid);
         req = servicehookmap["/stlights"].request;
-        
-        var sendreq = {};
-        sendreq.headers = req.headers;
-        sendreq.uri = req.uri + "/details/switch%20level"
-        sendreq.method = "GET"
-        console.log(req);
-        console.log(sendreq);
-        
-        
-//        sendreq.headers['Content-Length'] = bodyStr.length;
+
         request(sendreq, function (err, res, body) {
                 console.log("SUCCESS: ", err);
+                try {
                 var lights = JSON.parse(body);
                 if (lights.hasOwnProperty("devices")) {
-                    var ret = "<h2>Lights - click to toggle on/off</h2><ul>";
-                    for(var sidx = 0; sidx < lights.devices.length; sidx++) {
-                        if (lights.devices[sidx].id == lightid ) {
-                            console.log("TOGGLE LIGHT " + lights.devices[sidx].label);
-                            // for display
-                            lights.devices[sidx].state.switch =  (lights.devices[sidx].state.switch == "on") ? "off" : "on"
-                            // POST STATE TO DEVICE
-                            postState(req, lightid, lights.devices[sidx].state );
-                        }
+                var ret = "<h2>Lights - click to toggle on/off</h2><ul>";
+                for(var sidx = 0; sidx < lights.devices.length; sidx++) {
+                if (lights.devices[sidx].id == lightid ) {
+                console.log("TOGGLE LIGHT " + lights.devices[sidx].label);
+                // for display
+                lights.devices[sidx].state.switch =  (lights.devices[sidx].state.switch == "on") ? "off" : "on"
+                // POST STATE TO DEVICE
+                postState(req, lightid, lights.devices[sidx].state );
+                }
                 
                 
-                        ret += "<li><a href=\"/" + space + "/service/stlights/"+lights.devices[sidx].id+"\">"+lights.devices[sidx].label+"</a> is currently "+lights.devices[sidx].state.switch + "</li>";
+                ret += "<li><a href=\"/" + space + "/service/stlights/"+lights.devices[sidx].id+"\">"+lights.devices[sidx].label+"</a> is currently "+lights.devices[sidx].state.switch + "</li>";
                 
-                    }
-                    myresponse.end (ret + "</ul>")
+                }
+                myresponse.end (ret + "</ul>")
                 
                 } else
-                    myresponse.end("<h2>You didn't see anything (TBD)</h2>");
-
+                myresponse.end("<h2>You didn't see anything (TBD)</h2>");
+                } catch (e) {
+                console.log(e);
+                console.log(body);
+                myresponse.end("<h2>Something Unexpected Happened. Try again later.</h2>");
+                }
+                
                 });
-
+        
         
     }
 
@@ -409,7 +845,11 @@ function makeserver() {
     // nested callback function called when requests come in
     function onRequest(request, response) {
         
-        var req = urlparser.parse(request.url).pathname.split("/");
+        var parsedreq = urlparser.parse(request.url, true);
+        console.log(parsedreq.query);
+        var req = parsedreq.pathname.split("/");
+
+        //var req = urlparser.parse(request.url).pathname.split("/");
         var requestBody = '';
         var space = req[1];
         var thing = req[2];
@@ -422,19 +862,31 @@ function makeserver() {
         if(request.method == "GET") {
             
             if (space.length == 0) {
+                response.writeHead(200, {'Content-Type': 'text/html'});
                 response.end("<META http-equiv=\"refresh\" content=\"60\"><body>" + userPage() + "</body>");
             } else {
                 if (thing === "service") {
-                    response.writeHead(200, {'Content-Type': 'text/html'});
+                    
+                    if (parsedreq.query.hasOwnProperty("user")) {
+                        logEventToDb({'raw': {user: parsedreq.query.user, name: parsedreq.query.name}, 'space':space, 'message': parsedreq.query.name + " ran service " + action + " in space " + spaceName(space)});
+                        }
+                    
                     if (action == "here") {
+                        response.writeHead(200, {'Content-Type': 'text/html'});
                         response.end("<META http-equiv=\"refresh\" content=\"60\"><body>" + hereService(space, request)+"</body>");
                     } else if (action == "speak") {
+                        response.writeHead(200, {'Content-Type': 'text/html'});
                         response.end(speakService(space, request));
                     } else if (action == "hal") {
+                        response.writeHead(200, {'Content-Type': 'text/html'});
                         response.end(halService(space, request));
                     } else if (action == "stlights") {
+                        response.writeHead(200, {'Content-Type': 'text/html'});
                         stLightsService(space, request, response);
+                    } else if (action == "athome") {
+                        atHomeService(space, request, response);
                     } else {
+                        response.writeHead(200, {'Content-Type': 'text/html'});
                         response.end(unknownService(space, request));
                     }
                 } else if (space === "spaces") {
@@ -478,8 +930,10 @@ function makeserver() {
                         
                         if (action.length > 0) {
                             if (action == "leave") {
+                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " left " + spaceName(space) + " space"})
                                 doExitHooks(space, rec);
                             } else if (action == "enter") {
+                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " entered " + spaceName(space) + " space"})
                                 doEnterHooks(space, rec);
                             } else if (action == "signoff") {
                                 // space is ignored it should be "all"
