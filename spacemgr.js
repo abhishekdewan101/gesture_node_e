@@ -199,6 +199,30 @@ function speakenter(space, rec, req) {
 };
 
 
+function IdleTimeout() {
+    console.log("periodic timeout"); 
+    // exit old users from all spaces
+    var now = new Date();
+    for(var spaceid in spacemap) {
+        // exit from any space
+        if (spacemap[spaceid].length > 0) {
+            var array = spacemap[spaceid];
+            var exits = new Array();
+            // for each expired user
+            for (var i = 0; i < array.length; i++) {
+                if ((now - array[i].time) > 180000) {
+                    // three minute timeout
+                    exits.push(array[i]);
+                }
+            }
+            // now exit them all 
+            for (var j = 0; j < exits.length; i++) {
+                doExitHooks(spaceid, exits[j]);
+            }
+        }
+    }    
+}
+
 //
 // callback for connect call - finish connecting to mongo, make sure all indexes we need exist
 //
@@ -211,6 +235,8 @@ function connected2(err, db) {
     dbeventlog = db.collection('eventlog');
     dbathomepref = db.collection('athomeprefs');
     console.log("db up", dbspaces);
+    
+    setInterval(IdleTimeout, 60000);
     
     // make sure we have indexes
 //    mydb.collection('schedule-events').ensureIndex({prgSvcId:1, startTime:1}, function (err, val) {});
@@ -267,12 +293,12 @@ function spaceName(space) {
 }
 
 
-// do all enter hooks for this service
+// do all enter hooks for this service if dohooks is true
 // along with global enter hook
-function doEnterHooks(space, rec) {
+function doEnterOptHooks(space, rec, dohooks) {
     rec["time"] = new Date();
     
-    console.log("mongo call");
+    // console.log("mongo call");
     // mongo parallel - eventually will be only thing used but then need to defer finishing callback until its done
     dbspaces.findOne({ 'uuid': space, 'user': rec.user }, function (err, foundrec) {
         if (err) {
@@ -297,9 +323,9 @@ function doEnterHooks(space, rec) {
         // enter hook processing here
         // web request callback finishes here
     });
-    
+
     if (!spacemap.hasOwnProperty(space)) spacemap[space] = new Array();
-    
+
     var existing = objectFindByKey(spacemap[space], 'user', rec.user);
     // add user or update entry timestamp
     if (existing == -1) {
@@ -310,20 +336,33 @@ function doEnterHooks(space, rec) {
     
     // if user had entered and left, remove from lastspacemap
     if (!lastspacemap.hasOwnProperty(space)) lastspacemap[space] = new Array();
-    var oldexisting  = objectFindByKey(lastspacemap[space], 'user', rec.user);
+    var oldexisting = objectFindByKey(lastspacemap[space], 'user', rec.user);
     if (oldexisting != -1) {
         lastspacemap[space].splice(oldexisting, 1);
     }
-    
-    // do any service enter hooks
-    console.log("enter hooks for " + spaceName(space));
-    if (enterhooks.hasOwnProperty(space)) {
-        for (var i = 0; i < enterhooks[space].length; i++) {
-            console.log("calling enterhook");
-            enterhooks[space][i].method(space, rec, enterhooks[space][i].request);
+
+    if (dohooks) {
+        // do any service enter hooks
+        console.log("enter hooks for " + spaceName(space));
+        if (enterhooks.hasOwnProperty(space)) {
+            for (var i = 0; i < enterhooks[space].length; i++) {
+                console.log("calling enterhook");
+                enterhooks[space][i].method(space, rec, enterhooks[space][i].request);
+            }
         }
     }
 }
+
+// do global and service enter hooks
+function doEnterHooks(space, rec) {
+    doEnterOptHooks(space, rec, true);
+}
+
+// do global enter hook only
+function doRefreshHooks(space, rec) {
+    doEnterOptHooks(space, rec, false);
+}
+
 
 // do all exit hooks for this service
 // along with global exit hook
@@ -943,6 +982,9 @@ function makeserver() {
                             } else if (action == "enter") {
                                 logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " entered " + spaceName(space) + " space"});
                                 doEnterHooks(space, rec);
+                            } else if (action == "refresh") {
+                                logEventToDb({'raw': rec, 'space':space, 'message': rec.name + " refreshed presence in " + spaceName(space) + " space"});
+                                doRefreshHooks(space, rec);
                             } else if (action == "signoff") {
                                 // space is ignored it should be "all"
                                 doGlobalSpaceExit(rec);
