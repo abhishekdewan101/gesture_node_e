@@ -205,18 +205,22 @@ function IdleTimeout() {
     var now = new Date();
     for(var spaceid in spacemap) {
         // exit from any space
+        console.log ("space: " + spaceid)
         if (spacemap[spaceid].length > 0) {
+            
             var array = spacemap[spaceid];
             var exits = new Array();
             // for each expired user
             for (var i = 0; i < array.length; i++) {
                 if ((now - array[i].time) > 180000) {
                     // three minute timeout
+                    console.log(array[i]);
                     exits.push(array[i]);
                 }
             }
             // now exit them all 
-            for (var j = 0; j < exits.length; i++) {
+            for (var j = 0; j < exits.length; j++) {
+                console.log(array[i]);
                 doExitHooks(spaceid, exits[j]);
             }
         }
@@ -424,7 +428,7 @@ function hereService(space, request) {
     
     var roster = spacemap.hasOwnProperty(space) ? spacemap[space] : new Array();
     for (var i = 0; i < roster.length; i++) {
-        result +=  "<li>"+spacemap[space][i].name + " entered " + timeSince(spacemap[space][i].time) + " ago</li>";
+        result +=  "<li>"+spacemap[space][i].name + " present " + timeSince(spacemap[space][i].time) + " ago</li>";
     }
     result += "</ul><hr><h2>People who were in the " + spaceName(space) + " space</h2><ul>";
     
@@ -603,12 +607,15 @@ function atHomeService(space, inboundrequest, response) {
     //console.log(parsedreq.query);
     var req = parsedreq.pathname.split("/");
     var resptxt;
-    var feed = req[4];
-    console.log(req.length);
-    console.log("feed: " + feed);
+    var requestType = req[4];
+    // console.log(req.length);
+    console.log("feed: " + requestType);
     
-    // settings?name=brain&uri=
-    if (feed == "scene") {
+    
+    // request is http://site/SPACE/service/SERVICE/REQUESTTYPE
+
+    
+    if (requestType == "scene") {
         response.writeHead(200, {'Content-Type': 'application/json'});
         // read user and scene from request
         // get settings for space itself
@@ -633,17 +640,42 @@ function atHomeService(space, inboundrequest, response) {
 
             response.end("");
         });
+                
+    } else if (requestType == "settings") {
+        // return the settings for the space - that would be the background pattern for the space.
+        // is this working? Need to test.
+        // TBD STATUS request to little brain needs to return detailed page of what its doing.
         
-       
+        // setting request from a littlebrain include settings?name=brain&uri=brainwebaddress (in local space)
+        // TBD support multiple brains
+        // ISSUE: brain refresh/timeout
         
-    } else if (feed == "settings") {
         response.writeHead(200, {'Content-Type': 'application/json'});
         // read URI from request
         // get settings for space itself
         var littlebrain = parsedreq.query.name;
         var localuri = parsedreq.query.uri;
         var count = 0;
-        littlebrains[space] = {'name':littlebrain, 'uri': localuri};
+        
+        if (((typeof littlebrain !== 'undefined') && littlebrain) && ((typeof localuri !== 'undefined') && localuri)) {
+            // support multiple brains
+            var brains = littlebrains.hasOwnProperty(space) ? littlebrains[space] : new Array();
+            // look up the brain name
+            var id = objectFindByKey(brains, 'name', littlebrain);
+            if (id != -1) {
+                brains[id].uri = localuri; // name MUST be uniqe, same name overrides uri
+            } else {
+                // look up the uri
+                id = objectFindByKey(brains, 'uri', localuri);
+                if (id != -1) {
+                    brains[id].name = littlebrain; // uri MUST be uniqe, same uri overrides name
+                } else {
+                    // it sure looks new to me
+                    brains.push({ 'name': littlebrain, 'uri': localuri })
+                    littlebrains[space] = brains;
+                }
+            }
+        }
         response.write("{\"settings\":[");
         // TBD read settings, return them here
         //db.athomeprefs.find({'space':"92f697df-843b-49de-a1b7-0155493f2c25", 'mode':{$exists:true}}).sort({'mode.hour':1})
@@ -661,12 +693,13 @@ function atHomeService(space, inboundrequest, response) {
         function processend() {
             response.end("]}");
         }
-        //
-        //response.end(JSON.stringify(littlebrains[space], undefined, 1));
-    } else if (feed == "brains") {
+
+    } else if (requestType == "brains") {
+        // return the current littlebrain uri
+        // TBD return a LIST of littlebrains
         response.writeHead(200, {'Content-Type': 'application/json'});
-        response.end(littlebrains.hasOwnProperty(space)? JSON.stringify(littlebrains[space], undefined, 1) : "{}");
-    } else if (feed == "feed") {
+        response.end(littlebrains.hasOwnProperty(space)? '{"brains":'+JSON.stringify(littlebrains[space], undefined, 1) +"}" : '{"brains":[]}');
+    } else if (requestType == "feed") {
         response.writeHead(200, {'Content-Type': 'application/json'});
 
         resptxt = '{"title":"messages feed","description":"latest messages","pubDate":"2014-10-08T11:06:29.858-07:00","items":[';
