@@ -499,23 +499,72 @@ function getSmartThingsDeviceList(capabiltiy) {
 
 // send a form out
 
-function sendform(response, username, useremail, station, bulbs, color, showurl, greeting) {
+function sendform(space, response, username, useremail, station, bulbs, color, showurl, greeting) {
     // get user prefs for this service/space
     response.writeHead(200, {'Content-Type': 'text/html'});
-    
-    response.write("<h2>Your At Home Preference Page</h2>");
-    response.write("<p>" + username + ", select your home preferences:<p>");
-    
-    response.write('<form name="feedback" method="get"  action="athome">');
-    response.write('Radio Station: <input type="text" name="station" size="25" value="' + station + '"><p>');
-    response.write('Lighbulb Names: <input type="text" name="bulbs" size="25" value="' + bulbs + '"><p>');
-    response.write('Light Color (0-99): <input type="text" name="color" size="25" value="' + color + '"><p>');
-    response.write('Personal Greeting: <input type="text" name="greeting" size="25" value="' + greeting + '"><p>');
-    response.write('Web Site: <input type="text" name="url" size="25" value="' + showurl + '"><p>');
-    response.write('<input type="hidden" name="user" value="' + useremail + '">');
-    response.write('<input type="hidden" name="name" value="' + username + '">');
-    response.write('<input type="hidden" name="save" value="1">');
-    response.end('<input type="submit" value="Save"></form>');
+    response.write("<script language=\"javascript\">\
+function toggle(tx,el) {\
+	var ele = document.getElementById(el);\
+	var text = document.getElementById(tx);\
+	if(ele.style.display == \"block\") {\
+    		ele.style.display = \"none\";\
+		text.innerHTML = \"Show\";\
+  	}\
+	else {\
+		ele.style.display = \"block\";\
+		text.innerHTML = \"Hide\";\
+	}\
+} \
+</script>\
+<a id=\"d1\" href='javascript:toggle(\"d1\",\"t1\");'>Show</a> Scenes\
+<div id=\"t1\" style=\"display: none\">");
+
+        // TBD the modes for this user
+        var stream = dbathomepref.find( {'space':space, 'scene':{$exists:true}}, { _id: 0, 'scene':1,'user':1});
+                // handle the stream events
+        stream.on("data", processscene);
+        stream.on("end", processsceneend);
+
+        
+        function processscene(item) {
+            var name = "";
+            var userfield = "";
+            console.log(item);
+            if (item.hasOwnProperty("user")) {
+                if ((item.user != "") && (item.user != useremail))
+                    return; // skip it
+                else if (item.user != "") {
+                    name = "Your scene"
+                    userfield = ",\\\"user\\\":\\\""+item.user+"\\\"";
+                }
+            }
+            if (item.hasOwnProperty("scene") && (item.scene != "") )
+                    if (name != "")
+                        name += " named " + item.scene;
+                    else
+                        name = item.scene;
+            response.write("<a href='javascript:window.JSInterface.sendMode(\"{\\\"scene\\\":\\\"" + item.scene +"\\\""+userfield+"}\");'>" + name + "</a><br>");
+                //JSON.stringify(item, undefined, 1));
+        }
+        
+        function processsceneend() {      
+            response.write("</div><p></p><a id=\"d2\" href='javascript:toggle(\"d2\",\"t2\");'>Show</a> Preferences\
+        <div id=\"t2\" style=\"display: none\">");
+        	
+            response.write("<h2>Your At Home Preference Page</h2>");
+            response.write("<p>" + username + ", select your home preferences:<p>");
+            
+            response.write('<form name="feedback" method="get"  action="athome">');
+            response.write('Radio Station: <input type="text" name="station" size="25" value="' + station + '"><p>');
+            response.write('Lighbulb Names: <input type="text" name="bulbs" size="25" value="' + bulbs + '"><p>');
+            response.write('Light Color (0-99): <input type="text" name="color" size="25" value="' + color + '"><p>');
+            response.write('Personal Greeting: <input type="text" name="greeting" size="25" value="' + greeting + '"><p>');
+            response.write('Web Site: <input type="text" name="url" size="25" value="' + showurl + '"><p>');
+            response.write('<input type="hidden" name="user" value="' + useremail + '">');
+            response.write('<input type="hidden" name="name" value="' + username + '">');
+            response.write('<input type="hidden" name="save" value="1">');
+            response.end('<input type="submit" value="Save"></form></div>');
+        }
 }
 
 function setHueBulbs(bulbs, color) {
@@ -773,7 +822,7 @@ function atHomeService(space, inboundrequest, response) {
                     resptxt += ', "color":"' + color + '"';
                 }
                                  
-                // TBD don't do the bulbs here? 
+                // Don't do the bulbs here - the little brain handles them so pass them down
 
                 /*if ((bulbs != null ) && (color != null)) {
                    if ((bulbs != lastbulbs) || (color != lastcolor)) {
@@ -821,7 +870,7 @@ function atHomeService(space, inboundrequest, response) {
                 } else {
                     dbathomepref.insert({ user: useremail, space: space, station: station, bulbs: bulbs, color: color, url: showurl, greeting: greeting });
                 }
-                sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
+                sendform(space, response, username, useremail, station, bulbs, color, showurl, greeting);
             });
         } else {
             console.log("Lookup Settings " + useremail);
@@ -840,7 +889,7 @@ function atHomeService(space, inboundrequest, response) {
                 } else {
                     console.log("{'user': " + useremail + "} not found");
                 }
-                sendform(response, username, useremail, station, bulbs, color, showurl, greeting);
+                sendform(space, response, username, useremail, station, bulbs, color, showurl, greeting);
             });
         }
                     
