@@ -634,6 +634,23 @@ function setHueBulbs(bulbs, color) {
     }
 }
 
+// top level request for all brains
+function allbrains(response) {
+        var count = 0;
+        
+        response.writeHead(200, {'Content-Type': 'application/json'});
+        response.write('{"allbrains":[');
+        
+        for (var spaceid in littlebrains) {
+            if (littlebrains.hasOwnProperty(spaceid)) {
+                if (count++ > 0) response.write(",");
+
+                response.write('{"space": "'+spaceid+'", "brains":'+JSON.stringify(littlebrains[spaceid], undefined, 1) +"}");
+            }
+        }
+        response.end(']}');
+}
+
 var lastbulbs = "";
 var lastcolor = "";
 // demo service "at home"
@@ -1018,6 +1035,8 @@ function makeserver() {
                         response.writeHead(200, {'Content-Type': 'text/html'});
                         response.end(unknownService(space, request));
                     }
+                } else if (space === "allbrains") {
+                    allbrains(response);
                 } else if (space === "spaces") {
                     response.writeHead(200, {'Content-Type': 'application/json'});
                     response.end(JSON.stringify(spacemetadata,
