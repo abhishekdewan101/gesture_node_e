@@ -5,12 +5,12 @@
 "spaces": [
   {"uuid":"8d317958-a6b8-49ae-9a04-51b786195ba3", "macs":["D2:AD:8E:05:00:46"], "exclusions": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2", "3657534d-0387-47ab-bbf7-868835267d73"] },
   {"uuid":"f06ecb2f-de00-4ea6-a533-c46b217f96a2", "name":"Lab", "groups": ["allusers"], "services":["7d371985-41b9-4208-989c-4855a6cf42ee","6e16ba92-06ba-4379-b813-2e347818cb95", "3f1fde3f-004f-43fe-a96a-3c6d7693646a"]},
-  {"uuid":"3657534d-0387-47ab-bbf7-868835267d73", "name":"Fishbowl",  "macs": ["C8:0D:E4:CC:FB:15"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "users":["schettj@gmail.com", "jam1401@gmail.com", "gbecker8888@gmail.com"],"services":["e49cc815-6580-4a37-88ec-163d6b2fc245"]},
+  {"uuid":"3657534d-0387-47ab-bbf7-868835267d73", "name":"Fishbowl",  "macs": ["C8:0D:E4:CC:FB:15"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"],"groups": ["allusers"], "services":["ed980266-2191-4472-a580-afc17961728d"]},
   {"uuid":"5ae30445-8647-4269-8766-30b7c5e1c5eb", "name":"Collaboration",  "macs": ["DC:13:36:60:FF:54", "EA:1A:06:E2:0A:34"],  "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["0064a4bb-8601-4fde-81bf-978d2af3fdc7"]},
   {"uuid":"cc6ccbbe-14cc-4ba3-9e39-81ec14710f0a", "name":"NearMengsOffice",  "macs": ["F1:C6:63:2A:B0:92"],  "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"] },
   {"uuid":"3657534d-0387-47ab-bbf7-868835267d73", "name":"Moss",  "macs": ["EE:1E:C8:57:83:12"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["ed980266-2191-4472-a580-afc17961728d"]},
   {"uuid":"cfbd5a20-0e4f-4462-8468-cc9bcdce4fc0", "name":"Aspen",  "macs": ["E8:91:7E:1A:35:70", "D2:AD:8E:05:00:46"],  "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["66d964ac-0dfe-4ff1-bdf4-3636ce379f02"]},
-  {"uuid":"92f697df-843b-49de-a1b7-0155493f2c25", "name":"Converge",  "macs": ["D8:91:6E:C6:81:F2"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["66d964ac-0dfe-4ff1-bdf4-3636ce379f02"]},
+  {"uuid":"92f697df-843b-49de-a1b7-0155493f2c25", "name":"Living Room",  "macs": ["D8:91:6E:C6:81:F2"], "parents": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2"], "groups": ["allusers"], "services":["ed980266-2191-4472-a580-afc17961728d","66d964ac-0dfe-4ff1-bdf4-3636ce379f02"]},
   {"uuid":"0bb4e3ca-cdce-11e4-83e2-1681e6b88ec1", "name":"TestLab", "groups": ["allusers"], "services":["7d371985-41b9-4208-989c-4855a6cf42ee","6e16ba92-06ba-4379-b813-2e347818cb95","3f1fde3f-004f-43fe-a96a-3c6d7693646a"]},
   {"uuid":"70cd32f9-7a7f-4bd6-8566-4111e8f8ad8a", "name":"TestLab2", "groups": ["allusers"], "services":["7d371985-41b9-4208-989c-4855a6cf42ee","6e16ba92-06ba-4379-b813-2e347818cb95"]},
   {"uuid":"a19f93e0-cdcd-11e4-83e2-1681e6b88ec1", "name":"Light Blue", "macs": ["F8:6D:DB:19:49:36"], "parents": ["0bb4e3ca-cdce-11e4-83e2-1681e6b88ec1","70cd32f9-7a7f-4bd6-8566-4111e8f8ad8a"], "groups": ["allusers"], "services":["66d964ac-0dfe-4ff1-bdf4-3636ce379f02","f06ecb2f-de00-4ea6-a533-c46b217f96a2"]},
@@ -28,7 +28,7 @@
  {"uuid":"3f1fde3f-004f-43fe-a96a-3c6d7693646a", "name":"Control Lights", "endpoint": "/stlights", "webservice": "f1aee77f-f747-4cfe-a428-e56fd16af79e" },
  {"uuid":"e49cc815-6580-4a37-88ec-163d6b2fc245", "name":"Example1", "endpoint": "/e1"},
  {"uuid":"0064a4bb-8601-4fde-81bf-978d2af3fdc7", "name":"Example2", "endpoint": "/e2"},
- {"uuid":"ed980266-2191-4472-a580-afc17961728d", "name":"Example3", "endpoint": "/e3"},
+ {"uuid":"ed980266-2191-4472-a580-afc17961728d", "name":"At Home", "endpoint": "/athome", "webservice": "f1aee77f-f747-4cfe-a428-e56fd16af79e"},
  {"uuid":"66d964ac-0dfe-4ff1-bdf4-3636ce379f02", "name":"Example4", "endpoint": "/e4"}
 ],
 
