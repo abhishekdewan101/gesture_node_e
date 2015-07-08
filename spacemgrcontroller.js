@@ -311,6 +311,7 @@ function handleFile(err, data) {
     spaceName: spaceName, 
     timeSince: timeSince,
     postState: postState,
+    objectFindByKey: objectFindByKey,
     getSmartThingsDeviceList: getSmartThingsDeviceList
     };
 
