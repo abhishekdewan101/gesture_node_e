@@ -2,10 +2,13 @@ var urlparser = require('url');
 
 var lastbulbs = "";
 var lastcolor = "";
+var feedcnt = 1;
+
 // demo service "at home"
 module.exports = function (context, space, inboundrequest, response) {
     var myresponse = response;
     console.log("athome - " + space);
+    console.log("context - " + context);
     
     // This is either the settings page for the user, or the RSS feed. The RSS feed should serve out content for the current user including
     // media to play, greeting, info page URL
