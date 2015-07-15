@@ -47,13 +47,12 @@ var dbeventlog;
 var dbathomepref;
 
 // open mongo
-module.exports.connect = function () { amqp.connect(settings.rabbitmq, connected1); };
+module.exports.connect = function () { console.log("Startup"); amqp.connect(settings.rabbitmq).then(connected1); };
 
-function connected1(err, conn) {
-    if (!err) {
+function connected1(conn) {
+    console.log("amqp callback.")
         RabbitClient = conn;
         MongoClient.connect(settings.mongo, connected2);
-    } else { Console.log("Can't connect to the RABBIT")}
 }
 
 // close mongo
