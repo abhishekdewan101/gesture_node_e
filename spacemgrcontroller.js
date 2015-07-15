@@ -1,5 +1,5 @@
 /// <reference path="typings/node/node.d.ts"/>
-module.exports.settings = { 'mongo': 'mongodb://localhost:27017/uno', 'serviceport' : 8181 };
+module.exports.settings = { 'mongo': 'mongodb://localhost:27017/uno', 'serviceport' : 8181, 'rabbitmq':  'amqp://54.183.57.29'};
 
 var settings = module.exports.settings;
 
@@ -14,12 +14,15 @@ var uuid = require('node-uuid');
 var util = require('util');
 var reqall = require('require-all');
 
+var amqp = require('amqplib');
+var when = require('when');
+
+
 // load services (could we reload these?)
 var services;
 
-
 function loadAll() {
-    services = reqall({
+  services = reqall({
   dirname     :  __dirname + '/services',
   filter      :  /(.+Service)\.js$/,
   excludeDirs :  /^\.(git|svn)$/
@@ -34,6 +37,7 @@ loadAll();
 
 
 var MongoClient = require('mongodb').MongoClient;
+var RabbitClient;
 var ObjectID = require('mongodb').ObjectID;
 var mydb;
 var feedcnt = 1;
@@ -43,7 +47,14 @@ var dbeventlog;
 var dbathomepref;
 
 // open mongo
-module.exports.connect = function () { MongoClient.connect(settings.mongo, connected2);};
+module.exports.connect = function () { amqp.connect(settings.rabbitmq, connected1); };
+
+function connected1(err, conn) {
+    if (!err) {
+        RabbitClient = conn;
+        MongoClient.connect(settings.mongo, connected2);
+    } else { Console.log("Can't connect to the RABBIT")}
+}
 
 // close mongo
 module.exports.disconnect = function() { mydb.close(); };
@@ -290,6 +301,24 @@ function readspacemetadata() {
     fs.readFile(metadatapath, handleFile);
 }
 
+// for each space, create a publish endpoint 
+// we only broadcast "Enter" and "Leave" events
+
+var RabbitChannel;
+
+function connectPublishers() {
+     RabbitClient.createChannel(function (err, ch) {
+        RabbitChannel = ch;
+        for (var spacenum = 0; spacenum < spacemetadata.spaces.length; spacenum++) {
+            var space = spacemetadata.spaces[spacenum];
+                var ex = space.uuid;
+                //var ok = ch.assertQueue(ex);
+                //var exchange = ch.assertExchange('amq.fanout');  
+                var exchange = ch.assertExchange(ex, 'amq.fanout', {durable: false})   
+                //ch.bindQueue(ex, 'amq.fanout');     
+        }
+     });
+}
 
 // read the metadata, then start the server
 function handleFile(err, data) {
@@ -298,6 +327,7 @@ function handleFile(err, data) {
         spacemetadata = JSON.parse(data);
     }
     enableEventHooks();
+    connectPublishers(); // we have all space guids connect to rabbitmq channels
     
     context = { 
     // global data structures
@@ -308,6 +338,8 @@ function handleFile(err, data) {
     homespacemap: homespacemap,
     servicehookmap: servicehookmap,
     // global fns
+    RabbitClient: RabbitClient,     // needed?
+    RabbitChannel: RabbitChannel,   // needed?
     spaceName: spaceName, 
     timeSince: timeSince,
     postState: postState,
@@ -408,6 +440,8 @@ function doEnterOptHooks(space, rec, dohooks) {
 // do global and service enter hooks
 function doEnterHooks(space, rec) {
     doEnterOptHooks(space, rec, true);
+    // broadcast an enter event
+    RabbitChannel.publish(space, '', new Buffer('{"presence":"enter"}'));
 }
 
 // do global enter hook only
@@ -457,6 +491,8 @@ function doExitHooks(space, rec) {
         // remove from this space
         spacemap[space].splice(existing, 1);
     }
+    // broadcast an enter event
+    RabbitChannel.publish(space, '', new Buffer('{"presence":"leave"}'));
 }
 
 // exit from all spaces (like when client closes)
