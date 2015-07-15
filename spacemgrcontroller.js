@@ -14,7 +14,8 @@ var uuid = require('node-uuid');
 var util = require('util');
 var reqall = require('require-all');
 
-var amqp = require('amqplib');
+//ar amqp = require('amqplib');
+var amqp = require('amqplib/callback_api')
 var when = require('when');
 
 
@@ -47,9 +48,9 @@ var dbeventlog;
 var dbathomepref;
 
 // open mongo
-module.exports.connect = function () { console.log("Startup"); amqp.connect(settings.rabbitmq).then(connected1); };
+module.exports.connect = function () { console.log("Startup"); amqp.connect(settings.rabbitmq, connected1); };
 
-function connected1(conn) {
+function connected1(err, conn) {
     console.log("amqp callback.")
         RabbitClient = conn;
         MongoClient.connect(settings.mongo, connected2);
@@ -307,14 +308,16 @@ var RabbitChannel;
 
 function connectPublishers() {
      RabbitClient.createChannel(function (err, ch) {
+         console.log("channel created");
         RabbitChannel = ch;
         for (var spacenum = 0; spacenum < spacemetadata.spaces.length; spacenum++) {
             var space = spacemetadata.spaces[spacenum];
                 var ex = space.uuid;
                 //var ok = ch.assertQueue(ex);
                 //var exchange = ch.assertExchange('amq.fanout');  
-                var exchange = ch.assertExchange(ex, 'amq.fanout', {durable: false})   
+                var exchange = ch.assertExchange(ex, 'fanout', {durable: false});   
                 //ch.bindQueue(ex, 'amq.fanout');     
+                 console.log(space.uuid + " exchange created");
         }
      });
 }
