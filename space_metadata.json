@@ -1,6 +1,6 @@
 {
 "groups": [
-  {"name": "allusers", "users": ["uxcasdeveloper@gmail.com", "schettj@gmail.com", "jam1401@gmail.com", "gbecker8888@gmail.com", "choonmun.hooi@gmail.com", "aprilr.samsung@gmail.com", "michael.o.mccann@gmail.com", "asilver@gmail.com"]}
+  {"name": "allusers", "users": ["rogerio@kwamecorp.com", "uxcasdeveloper@gmail.com", "schettj@gmail.com", "jam1401@gmail.com", "gbecker8888@gmail.com", "choonmun.hooi@gmail.com", "aprilr.samsung@gmail.com", "michael.o.mccann@gmail.com", "asilver@gmail.com"]}
   ],
 "spaces": [
   {"uuid":"8d317958-a6b8-49ae-9a04-51b786195ba3", "macs":["D2:AD:8E:05:00:46"], "exclusions": ["f06ecb2f-de00-4ea6-a533-c46b217f96a2", "3657534d-0387-47ab-bbf7-868835267d73"] },
